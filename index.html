@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Villager Labs — Wake the Giant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <!-- Spline viewer web component (no React/build step required) -->
+  <script type="module" src="https://unpkg.com/@splinetool/viewer/build/spline-viewer.js"></script>
+
+  <style>
+    :root {
+      --cyan: #00E5C4;
+      --magenta: #FF2ED4;
+      --bg: #05050F;
+      --surface: #0C0C1E;
+      --elevated: #111128;
+      --floating: #181835;
+      --text: #DDE0F0;
+      --muted: #7278A0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, .orbitron { font-family: 'Orbitron', sans-serif; }
+
+    /* Grain texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+    }
+
+    /* Glowing radial backgrounds */
+    .bg-glow-cyan {
+      background: radial-gradient(ellipse 60% 50% at 20% 30%, rgba(0,229,196,0.12) 0%, transparent 70%),
+                  radial-gradient(ellipse 40% 40% at 80% 70%, rgba(255,46,212,0.08) 0%, transparent 70%);
+    }
+    .bg-glow-magenta {
+      background: radial-gradient(ellipse 60% 50% at 80% 30%, rgba(255,46,212,0.12) 0%, transparent 70%),
+                  radial-gradient(ellipse 40% 40% at 20% 70%, rgba(0,229,196,0.08) 0%, transparent 70%);
+    }
+
+    /* Neon text */
+    .text-cyan { color: var(--cyan); }
+    .text-magenta { color: var(--magenta); }
+
+    .glow-cyan {
+      text-shadow: 0 0 20px rgba(0,229,196,0.8), 0 0 60px rgba(0,229,196,0.3);
+    }
+    .glow-magenta {
+      text-shadow: 0 0 20px rgba(255,46,212,0.8), 0 0 60px rgba(255,46,212,0.3);
+    }
+
+    /* Neon border cards */
+    .card-neon {
+      background: var(--elevated);
+      border: 1px solid rgba(0,229,196,0.15);
+      border-radius: 12px;
+      position: relative;
+      transition: border-color 0.3s cubic-bezier(0.34,1.56,0.64,1),
+                  transform 0.3s cubic-bezier(0.34,1.56,0.64,1),
+                  box-shadow 0.3s ease;
+    }
+    .card-neon::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(0,229,196,0.2), transparent 50%, rgba(255,46,212,0.2));
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: -1;
+    }
+    .card-neon:hover {
+      border-color: rgba(0,229,196,0.5);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 40px rgba(0,229,196,0.12), 0 2px 8px rgba(0,0,0,0.4);
+    }
+    .card-neon:hover::before { opacity: 1; }
+
+    /* Buttons */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--cyan);
+      color: #05050F;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 14px 32px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1),
+                  box-shadow 0.2s ease,
+                  background 0.2s ease;
+      box-shadow: 0 0 20px rgba(0,229,196,0.4), 0 4px 16px rgba(0,0,0,0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 0 40px rgba(0,229,196,0.6), 0 8px 24px rgba(0,0,0,0.4);
+      background: #00f5d4;
+    }
+    .btn-primary:active { transform: translateY(0) scale(0.99); }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: var(--text);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      padding: 13px 32px;
+      border-radius: 6px;
+      border: 1px solid rgba(221,224,240,0.2);
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
+    }
+    .btn-ghost:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 0 20px rgba(0,229,196,0.2);
+    }
+    .btn-ghost:active { transform: translateY(0); }
+
+    /* Nav */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 20px 0;
+      background: linear-gradient(to bottom, rgba(5,5,15,0.95), transparent);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(0,229,196,0.06);
+    }
+    .nav-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      transition: color 0.2s ease;
+      position: relative;
+    }
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: -2px; left: 0; right: 0;
+      height: 1px;
+      background: var(--cyan);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.2s ease;
+    }
+    .nav-link:hover { color: var(--cyan); }
+    .nav-link:hover::after { transform: scaleX(1); }
+
+    /* Hero section */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,196,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,196,0.04) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 30%, transparent 80%);
+    }
+
+    /* Circuit line decoration */
+    .circuit-line {
+      position: absolute;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      height: 1px;
+      opacity: 0.3;
+      animation: scanline 4s ease-in-out infinite;
+    }
+    @keyframes scanline {
+      0%, 100% { opacity: 0; transform: scaleX(0.3); }
+      50% { opacity: 0.4; transform: scaleX(1); }
+    }
+
+    /* Logo image */
+    .logo-img {
+      border-radius: 16px;
+      box-shadow:
+        0 0 0 1px rgba(0,229,196,0.2),
+        0 0 40px rgba(0,229,196,0.15),
+        0 0 80px rgba(255,46,212,0.1),
+        0 20px 60px rgba(0,0,0,0.6);
+      position: relative;
+    }
+    .logo-img-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .logo-img-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(0,229,196,0.3), rgba(255,46,212,0.3));
+      filter: blur(16px);
+      z-index: -1;
+      animation: pulseGlow 3s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.03); }
+    }
+
+    /* Section spacing */
+    section { position: relative; z-index: 1; }
+
+    /* Stat number */
+    .stat-num {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 2.5rem;
+      color: var(--cyan);
+      text-shadow: 0 0 20px rgba(0,229,196,0.5);
+    }
+
+    /* Icon box */
+    .icon-box {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      background: rgba(0,229,196,0.08);
+      border: 1px solid rgba(0,229,196,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      transition: background 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card-neon:hover .icon-box {
+      background: rgba(0,229,196,0.15);
+      box-shadow: 0 0 16px rgba(0,229,196,0.2);
+    }
+
+    /* Horizontal divider */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,229,196,0.3) 30%, rgba(255,46,212,0.3) 70%, transparent);
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,229,196,0.08);
+      border: 1px solid rgba(0,229,196,0.25);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--cyan);
+      font-family: 'Orbitron', sans-serif;
+    }
+    .badge-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+      animation: blink 1.5s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* CTA section */
+    .cta-section {
+      background: var(--surface);
+      border-top: 1px solid rgba(0,229,196,0.08);
+      border-bottom: 1px solid rgba(0,229,196,0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Input */
+    .input-field {
+      background: var(--floating);
+      border: 1px solid rgba(221,224,240,0.12);
+      border-radius: 6px;
+      padding: 14px 18px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      width: 100%;
+    }
+    .input-field::placeholder { color: var(--muted); }
+    .input-field:focus {
+      border-color: rgba(0,229,196,0.4);
+      box-shadow: 0 0 0 3px rgba(0,229,196,0.08);
+    }
+
+    /* Footer */
+    footer {
+      background: var(--bg);
+      border-top: 1px solid rgba(221,224,240,0.06);
+    }
+
+    /* Mobile nav toggle */
+    .mobile-menu {
+      display: none;
+    }
+
+    /* Floating particles */
+    .particle {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: float 6s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.4; }
+      50% { transform: translateY(-20px) rotate(180deg); opacity: 0.8; }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: rgba(0,229,196,0.3); border-radius: 3px; }
+
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .mobile-menu { display: block; }
+    }
+
+    /* === Spline Hero Card === */
+    #hero-card {
+      position: relative;
+      width: 100%;
+      height: 540px;
+      border-radius: 20px;
+      overflow: hidden;
+      background: #06061A;
+      border: 1px solid rgba(0,229,196,0.18);
+      box-shadow:
+        0 0 0 1px rgba(0,229,196,0.04),
+        0 0 60px rgba(0,229,196,0.1),
+        0 0 120px rgba(255,46,212,0.06),
+        0 32px 80px rgba(0,0,0,0.65);
+      cursor: none;
+    }
+
+    /* Radial spotlight that follows cursor */
+    #hero-spotlight {
+      position: absolute;
+      width: 380px; height: 380px;
+      border-radius: 50%;
+      background: radial-gradient(circle at center,
+        rgba(0,229,196,0.16) 0%,
+        rgba(255,46,212,0.07) 40%,
+        transparent 70%);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      z-index: 5;
+      filter: blur(28px);
+      transition: opacity 0.3s ease;
+    }
+
+    /* Neon cursor dot */
+    #hero-cursor {
+      position: absolute;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan), 0 0 28px rgba(0,229,196,0.8);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      z-index: 20;
+      transition: opacity 0.15s ease;
+    }
+
+    /* Dog logo tilt container */
+    #dog-tilt {
+      transform-style: preserve-3d;
+      will-change: transform;
+      transition: transform 0.08s linear;
+    }
+
+    spline-viewer { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div style="max-width:1200px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <img src="brand_assets/image_123650291 (7).JPG" alt="Villager Labs" style="width:40px; height:40px; border-radius:8px; object-fit:cover; border:1px solid rgba(0,229,196,0.3);" />
+        <span class="orbitron" style="font-size:15px; font-weight:700; letter-spacing:0.08em;">
+          <span class="text-cyan">VILLAGER</span> <span style="color:#7278A0;">LABS</span>
+        </span>
+      </div>
+      <div class="nav-links" style="display:flex; gap:36px;">
+        <a href="#services" class="nav-link">Services</a>
+        <a href="#why" class="nav-link">Why Us</a>
+        <a href="#process" class="nav-link">Process</a>
+        <a href="#contact" class="nav-link">Contact</a>
+      </div>
+      <a href="#contact" class="btn-primary" style="font-size:11px; padding:10px 22px;">Get Started</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero bg-glow-cyan" style="padding: 120px 0 80px;">
+    <div class="hero-grid"></div>
+
+    <!-- Floating particles -->
+    <div class="particle" style="width:4px;height:4px;background:var(--cyan);top:20%;left:10%;animation-delay:0s;animation-duration:5s;"></div>
+    <div class="particle" style="width:3px;height:3px;background:var(--magenta);top:60%;left:5%;animation-delay:1s;animation-duration:7s;"></div>
+    <div class="particle" style="width:4px;height:4px;background:var(--cyan);top:30%;right:8%;animation-delay:2s;animation-duration:6s;"></div>
+    <div class="particle" style="width:3px;height:3px;background:var(--magenta);top:70%;right:12%;animation-delay:0.5s;animation-duration:8s;"></div>
+    <div class="particle" style="width:5px;height:5px;background:rgba(0,229,196,0.5);top:80%;left:20%;animation-delay:1.5s;animation-duration:5.5s;"></div>
+
+    <!-- Circuit lines -->
+    <div class="circuit-line" style="width:200px; top:40%; left:0; animation-delay:0s;"></div>
+    <div class="circuit-line" style="width:150px; top:60%; right:0; animation-delay:2s; transform-origin:right;"></div>
+
+    <div style="max-width:1200px; margin:0 auto; padding:0 24px; display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center;">
+      <!-- Left: Text -->
+      <div>
+        <div class="badge" style="margin-bottom:28px;">
+          <span class="badge-dot"></span>
+          AI-POWERED TRANSFORMATION
+        </div>
+
+        <h1 style="font-size:clamp(2.4rem,5vw,4rem); font-weight:900; line-height:1.1; letter-spacing:-0.03em; margin-bottom:24px;">
+          Wake<br/>
+          <span class="text-cyan glow-cyan">the Giant</span><span class="text-magenta glow-magenta">.</span>
+        </h1>
+
+        <p style="font-size:1.15rem; color:var(--muted); line-height:1.75; max-width:480px; margin-bottom:40px;">
+          Villager Labs implements cutting-edge AI tools that unlock your organization's dormant potential — transforming how your team works, scales, and competes.
+        </p>
+
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+          <a href="#contact" class="btn-primary">
+            <span>Start Your Transformation</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a href="#services" class="btn-ghost">See What We Build</a>
+        </div>
+
+        <!-- Stats row -->
+        <div style="display:flex; gap:40px; margin-top:56px; padding-top:40px; border-top:1px solid rgba(221,224,240,0.08);">
+          <div>
+            <div class="stat-num">10×</div>
+            <div style="font-size:13px; color:var(--muted); margin-top:2px;">Productivity lift</div>
+          </div>
+          <div>
+            <div class="stat-num">48h</div>
+            <div style="font-size:13px; color:var(--muted); margin-top:2px;">Avg deployment</div>
+          </div>
+          <div>
+            <div class="stat-num">100%</div>
+            <div style="font-size:13px; color:var(--muted); margin-top:2px;">Custom-built</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Interactive Spline card — dog face follows cursor -->
+      <div style="display:flex; justify-content:center; align-items:center;">
+        <div id="hero-card">
+
+          <!-- Cursor spotlight glow -->
+          <div id="hero-spotlight"></div>
+          <!-- Custom neon cursor dot -->
+          <div id="hero-cursor"></div>
+
+          <!-- Spline 3D scene: fills the card, reacts to cursor internally -->
+          <div style="position:absolute; inset:0; z-index:1;">
+            <spline-viewer
+              url="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
+              loading-anim-type="spinner-small-light"
+            ></spline-viewer>
+          </div>
+
+          <!-- Gradient blend: keeps scene edges from clashing -->
+          <div style="
+            position:absolute; inset:0;
+            background: linear-gradient(to bottom, transparent 40%, rgba(6,6,26,0.65) 100%),
+                        linear-gradient(to right,  rgba(6,6,26,0.3) 0%, transparent 30%,
+                                                   transparent 70%, rgba(6,6,26,0.3) 100%);
+            z-index:2; pointer-events:none;">
+          </div>
+
+          <!-- Dog logo: 3D perspective tilt tracks cursor -->
+          <div style="
+            position:absolute; inset:0; z-index:3;
+            display:flex; align-items:center; justify-content:center;
+            pointer-events:none;">
+            <div id="dog-tilt">
+              <img
+                src="brand_assets/image_123650291 (7).JPG"
+                alt="Villager Labs mascot"
+                style="
+                  width:230px; display:block;
+                  border-radius:18px;
+                  border:1px solid rgba(0,229,196,0.3);
+                  box-shadow:
+                    0 0 0 1px rgba(0,229,196,0.08),
+                    0 0 30px rgba(0,229,196,0.28),
+                    0 0 70px rgba(255,46,212,0.14),
+                    0 24px 56px rgba(0,0,0,0.85);"
+              />
+            </div>
+          </div>
+
+          <!-- Bottom hint label -->
+          <div style="
+            position:absolute; bottom:0; left:0; right:0; z-index:4;
+            padding:14px 20px;
+            background:linear-gradient(to top, rgba(6,6,26,0.96) 0%, transparent 100%);
+            pointer-events:none;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:5px;height:5px;border-radius:50%;background:var(--cyan);
+                          box-shadow:0 0 8px var(--cyan);animation:blink 1.5s ease-in-out infinite;"></div>
+              <span class="orbitron" style="font-size:10px;color:var(--muted);letter-spacing:0.14em;">
+                MOVE YOUR CURSOR
+              </span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MARQUEE STRIP -->
+  <div style="background:var(--surface); border-top:1px solid rgba(0,229,196,0.1); border-bottom:1px solid rgba(0,229,196,0.1); padding:16px 0; overflow:hidden; position:relative; z-index:1;">
+    <div style="display:flex; gap:60px; white-space:nowrap; animation:marquee 20s linear infinite;">
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">AI WORKFLOW AUTOMATION</span>
+      <span style="color:var(--cyan);">◆</span>
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">CUSTOM AI AGENTS</span>
+      <span style="color:var(--magenta);">◆</span>
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">INTELLIGENT PROCESS DESIGN</span>
+      <span style="color:var(--cyan);">◆</span>
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">LLM INTEGRATION</span>
+      <span style="color:var(--magenta);">◆</span>
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">DATA INTELLIGENCE</span>
+      <span style="color:var(--cyan);">◆</span>
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">ENTERPRISE AI DEPLOYMENT</span>
+      <span style="color:var(--magenta);">◆</span>
+      <!-- Duplicate for seamless loop -->
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">AI WORKFLOW AUTOMATION</span>
+      <span style="color:var(--cyan);">◆</span>
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">CUSTOM AI AGENTS</span>
+      <span style="color:var(--magenta);">◆</span>
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">INTELLIGENT PROCESS DESIGN</span>
+      <span style="color:var(--cyan);">◆</span>
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">LLM INTEGRATION</span>
+      <span style="color:var(--magenta);">◆</span>
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">DATA INTELLIGENCE</span>
+      <span style="color:var(--cyan);">◆</span>
+      <span class="orbitron" style="font-size:11px; color:var(--muted); letter-spacing:0.15em;">ENTERPRISE AI DEPLOYMENT</span>
+      <span style="color:var(--magenta);">◆</span>
+    </div>
+  </div>
+  <style>
+    @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+  </style>
+
+  <!-- SERVICES -->
+  <section id="services" style="padding:100px 0;" class="bg-glow-magenta">
+    <div style="max-width:1200px; margin:0 auto; padding:0 24px;">
+      <div style="text-align:center; margin-bottom:64px;">
+        <div class="badge" style="margin-bottom:20px;">WHAT WE BUILD</div>
+        <h2 style="font-size:clamp(1.8rem,4vw,3rem); font-weight:700; letter-spacing:-0.03em; margin-bottom:16px;">
+          AI Tools That Actually <span class="text-cyan">Move the Needle</span>
+        </h2>
+        <p style="color:var(--muted); max-width:560px; margin:0 auto; font-size:1.05rem;">
+          We don't sell off-the-shelf software. We engineer bespoke AI systems wired directly into how your business operates.
+        </p>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:24px;">
+
+        <!-- Card 1 -->
+        <div class="card-neon" style="padding:32px;">
+          <div class="icon-box" style="margin-bottom:20px;">🤖</div>
+          <h3 style="font-size:1.05rem; font-weight:700; letter-spacing:-0.01em; margin-bottom:12px;">Custom AI Agents</h3>
+          <p style="color:var(--muted); font-size:14px; line-height:1.7;">
+            Autonomous agents that handle research, outreach, scheduling, reporting — running 24/7 so your team focuses on what matters most.
+          </p>
+          <div style="margin-top:24px; padding-top:20px; border-top:1px solid rgba(221,224,240,0.06); display:flex; flex-wrap:wrap; gap:8px;">
+            <span style="background:rgba(0,229,196,0.08); border:1px solid rgba(0,229,196,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--cyan);">AutoGPT-style</span>
+            <span style="background:rgba(0,229,196,0.08); border:1px solid rgba(0,229,196,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--cyan);">Multi-agent</span>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="card-neon" style="padding:32px;">
+          <div class="icon-box" style="margin-bottom:20px; background:rgba(255,46,212,0.08); border-color:rgba(255,46,212,0.2);">⚡</div>
+          <h3 style="font-size:1.05rem; font-weight:700; letter-spacing:-0.01em; margin-bottom:12px;">Workflow Automation</h3>
+          <p style="color:var(--muted); font-size:14px; line-height:1.7;">
+            Map your processes end-to-end, identify bottlenecks, and deploy AI that eliminates manual steps — turning hours into seconds.
+          </p>
+          <div style="margin-top:24px; padding-top:20px; border-top:1px solid rgba(221,224,240,0.06); display:flex; flex-wrap:wrap; gap:8px;">
+            <span style="background:rgba(255,46,212,0.08); border:1px solid rgba(255,46,212,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--magenta);">No-code + API</span>
+            <span style="background:rgba(255,46,212,0.08); border:1px solid rgba(255,46,212,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--magenta);">Real-time</span>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="card-neon" style="padding:32px;">
+          <div class="icon-box" style="margin-bottom:20px;">🧠</div>
+          <h3 style="font-size:1.05rem; font-weight:700; letter-spacing:-0.01em; margin-bottom:12px;">LLM Integration</h3>
+          <p style="color:var(--muted); font-size:14px; line-height:1.7;">
+            Embed GPT-4, Claude, and other frontier models directly into your products and pipelines with fine-tuning, RAG, and custom prompting.
+          </p>
+          <div style="margin-top:24px; padding-top:20px; border-top:1px solid rgba(221,224,240,0.06); display:flex; flex-wrap:wrap; gap:8px;">
+            <span style="background:rgba(0,229,196,0.08); border:1px solid rgba(0,229,196,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--cyan);">RAG pipelines</span>
+            <span style="background:rgba(0,229,196,0.08); border:1px solid rgba(0,229,196,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--cyan);">Fine-tuning</span>
+          </div>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="card-neon" style="padding:32px;">
+          <div class="icon-box" style="margin-bottom:20px; background:rgba(255,46,212,0.08); border-color:rgba(255,46,212,0.2);">📊</div>
+          <h3 style="font-size:1.05rem; font-weight:700; letter-spacing:-0.01em; margin-bottom:12px;">Data Intelligence</h3>
+          <p style="color:var(--muted); font-size:14px; line-height:1.7;">
+            Transform raw data into actionable insight with AI-driven dashboards, anomaly detection, and predictive analytics tailored to your KPIs.
+          </p>
+          <div style="margin-top:24px; padding-top:20px; border-top:1px solid rgba(221,224,240,0.06); display:flex; flex-wrap:wrap; gap:8px;">
+            <span style="background:rgba(255,46,212,0.08); border:1px solid rgba(255,46,212,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--magenta);">Predictive</span>
+            <span style="background:rgba(255,46,212,0.08); border:1px solid rgba(255,46,212,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--magenta);">Real-time dash</span>
+          </div>
+        </div>
+
+        <!-- Card 5 -->
+        <div class="card-neon" style="padding:32px;">
+          <div class="icon-box" style="margin-bottom:20px;">🔗</div>
+          <h3 style="font-size:1.05rem; font-weight:700; letter-spacing:-0.01em; margin-bottom:12px;">System Integration</h3>
+          <p style="color:var(--muted); font-size:14px; line-height:1.7;">
+            Connect your CRM, ERP, communication tools, and databases into one unified AI layer — no more silos, no more manual handoffs.
+          </p>
+          <div style="margin-top:24px; padding-top:20px; border-top:1px solid rgba(221,224,240,0.06); display:flex; flex-wrap:wrap; gap:8px;">
+            <span style="background:rgba(0,229,196,0.08); border:1px solid rgba(0,229,196,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--cyan);">REST + GraphQL</span>
+            <span style="background:rgba(0,229,196,0.08); border:1px solid rgba(0,229,196,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--cyan);">Webhooks</span>
+          </div>
+        </div>
+
+        <!-- Card 6 -->
+        <div class="card-neon" style="padding:32px;">
+          <div class="icon-box" style="margin-bottom:20px; background:rgba(255,46,212,0.08); border-color:rgba(255,46,212,0.2);">🚀</div>
+          <h3 style="font-size:1.05rem; font-weight:700; letter-spacing:-0.01em; margin-bottom:12px;">AI Strategy & Consulting</h3>
+          <p style="color:var(--muted); font-size:14px; line-height:1.7;">
+            Not sure where to start? We audit your operations, identify the highest-leverage AI opportunities, and build a roadmap to get you there fast.
+          </p>
+          <div style="margin-top:24px; padding-top:20px; border-top:1px solid rgba(221,224,240,0.06); display:flex; flex-wrap:wrap; gap:8px;">
+            <span style="background:rgba(255,46,212,0.08); border:1px solid rgba(255,46,212,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--magenta);">AI audit</span>
+            <span style="background:rgba(255,46,212,0.08); border:1px solid rgba(255,46,212,0.15); border-radius:4px; padding:3px 10px; font-size:11px; color:var(--magenta);">Roadmapping</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- WHY VILLAGER LABS -->
+  <section id="why" style="padding:100px 0;" class="bg-glow-cyan">
+    <div style="max-width:1200px; margin:0 auto; padding:0 24px; display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center;">
+
+      <!-- Left: Value props -->
+      <div>
+        <div class="badge" style="margin-bottom:20px;">WHY VILLAGER LABS</div>
+        <h2 style="font-size:clamp(1.8rem,4vw,3rem); font-weight:700; letter-spacing:-0.03em; margin-bottom:40px;">
+          Built by Builders.<br/><span class="text-magenta" style="text-shadow: 0 0 20px rgba(255,46,212,0.5);">Not Consultants.</span>
+        </h2>
+
+        <div style="display:flex; flex-direction:column; gap:28px;">
+          <div style="display:flex; gap:20px; align-items:flex-start;">
+            <div style="width:40px;height:40px;border-radius:8px;background:rgba(0,229,196,0.08);border:1px solid rgba(0,229,196,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">⚡</div>
+            <div>
+              <h4 style="font-size:15px;font-weight:600;margin-bottom:6px;letter-spacing:-0.01em;">Fast deployment, real results</h4>
+              <p style="color:var(--muted);font-size:14px;line-height:1.7;">We move at startup speed. Most engagements have working AI in days — not quarters.</p>
+            </div>
+          </div>
+          <div style="display:flex; gap:20px; align-items:flex-start;">
+            <div style="width:40px;height:40px;border-radius:8px;background:rgba(0,229,196,0.08);border:1px solid rgba(0,229,196,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🎯</div>
+            <div>
+              <h4 style="font-size:15px;font-weight:600;margin-bottom:6px;letter-spacing:-0.01em;">Tailored to your exact context</h4>
+              <p style="color:var(--muted);font-size:14px;line-height:1.7;">No templates. We learn your workflows, your data, your team — then engineer AI that fits like it was grown there.</p>
+            </div>
+          </div>
+          <div style="display:flex; gap:20px; align-items:flex-start;">
+            <div style="width:40px;height:40px;border-radius:8px;background:rgba(0,229,196,0.08);border:1px solid rgba(0,229,196,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🔐</div>
+            <div>
+              <h4 style="font-size:15px;font-weight:600;margin-bottom:6px;letter-spacing:-0.01em;">Security-first architecture</h4>
+              <p style="color:var(--muted);font-size:14px;line-height:1.7;">Your data stays yours. We build with enterprise-grade security, on-prem options, and full audit trails.</p>
+            </div>
+          </div>
+          <div style="display:flex; gap:20px; align-items:flex-start;">
+            <div style="width:40px;height:40px;border-radius:8px;background:rgba(0,229,196,0.08);border:1px solid rgba(0,229,196,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📈</div>
+            <div>
+              <h4 style="font-size:15px;font-weight:600;margin-bottom:6px;letter-spacing:-0.01em;">Built to scale with you</h4>
+              <p style="color:var(--muted);font-size:14px;line-height:1.7;">Systems that grow as you grow. We design for 10x your current volume from day one.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Large stat blocks -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+        <div style="background:var(--elevated); border:1px solid rgba(0,229,196,0.12); border-radius:12px; padding:32px; text-align:center;">
+          <div class="stat-num" style="font-size:3rem;">80%</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:8px; line-height:1.5;">Reduction in manual operational tasks</div>
+        </div>
+        <div style="background:var(--elevated); border:1px solid rgba(255,46,212,0.12); border-radius:12px; padding:32px; text-align:center;">
+          <div class="stat-num" style="font-size:3rem; color:var(--magenta); text-shadow:0 0 20px rgba(255,46,212,0.5);">3×</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:8px; line-height:1.5;">Average revenue growth after AI adoption</div>
+        </div>
+        <div style="background:var(--elevated); border:1px solid rgba(255,46,212,0.12); border-radius:12px; padding:32px; text-align:center;">
+          <div class="stat-num" style="font-size:3rem; color:var(--magenta); text-shadow:0 0 20px rgba(255,46,212,0.5);">48h</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:8px; line-height:1.5;">Average time to first deployed agent</div>
+        </div>
+        <div style="background:var(--elevated); border:1px solid rgba(0,229,196,0.12); border-radius:12px; padding:32px; text-align:center;">
+          <div class="stat-num" style="font-size:3rem;">∞</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:8px; line-height:1.5;">Scale ceiling on our AI systems</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- PROCESS -->
+  <section id="process" style="padding:100px 0;">
+    <div style="max-width:1200px; margin:0 auto; padding:0 24px;">
+      <div style="text-align:center; margin-bottom:64px;">
+        <div class="badge" style="margin-bottom:20px;">HOW IT WORKS</div>
+        <h2 style="font-size:clamp(1.8rem,4vw,3rem); font-weight:700; letter-spacing:-0.03em; margin-bottom:16px;">
+          From Discovery to <span class="text-cyan glow-cyan">Deployment</span>
+        </h2>
+        <p style="color:var(--muted); max-width:500px; margin:0 auto;">
+          A lean, repeatable process designed to move fast without cutting corners.
+        </p>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0; position:relative;">
+        <!-- Connecting line -->
+        <div style="position:absolute; top:40px; left:calc(12.5% + 20px); right:calc(12.5% + 20px); height:1px; background:linear-gradient(90deg, var(--cyan), var(--magenta)); opacity:0.25; z-index:0;"></div>
+
+        <!-- Step 1 -->
+        <div style="text-align:center; padding:0 16px; position:relative; z-index:1;">
+          <div style="width:80px;height:80px;border-radius:50%;background:var(--elevated);border:1px solid rgba(0,229,196,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:24px; box-shadow:0 0 20px rgba(0,229,196,0.15);">🔍</div>
+          <div class="orbitron" style="font-size:11px;color:var(--cyan);letter-spacing:0.1em;margin-bottom:10px;">01 — DISCOVER</div>
+          <h4 style="font-size:15px;font-weight:600;margin-bottom:10px;">Deep Dive Audit</h4>
+          <p style="font-size:13px;color:var(--muted);line-height:1.7;">We map every workflow, understand your data, and find where AI creates the most leverage.</p>
+        </div>
+
+        <!-- Step 2 -->
+        <div style="text-align:center; padding:0 16px; position:relative; z-index:1;">
+          <div style="width:80px;height:80px;border-radius:50%;background:var(--elevated);border:1px solid rgba(255,46,212,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:24px; box-shadow:0 0 20px rgba(255,46,212,0.15);">🏗️</div>
+          <div class="orbitron" style="font-size:11px;color:var(--magenta);letter-spacing:0.1em;margin-bottom:10px;">02 — DESIGN</div>
+          <h4 style="font-size:15px;font-weight:600;margin-bottom:10px;">Blueprint & Roadmap</h4>
+          <p style="font-size:13px;color:var(--muted);line-height:1.7;">Architecture decisions, tooling selection, and a phased plan with clear milestones and ROI targets.</p>
+        </div>
+
+        <!-- Step 3 -->
+        <div style="text-align:center; padding:0 16px; position:relative; z-index:1;">
+          <div style="width:80px;height:80px;border-radius:50%;background:var(--elevated);border:1px solid rgba(0,229,196,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:24px; box-shadow:0 0 20px rgba(0,229,196,0.15);">⚙️</div>
+          <div class="orbitron" style="font-size:11px;color:var(--cyan);letter-spacing:0.1em;margin-bottom:10px;">03 — BUILD</div>
+          <h4 style="font-size:15px;font-weight:600;margin-bottom:10px;">Rapid Development</h4>
+          <p style="font-size:13px;color:var(--muted);line-height:1.7;">Agile sprints with daily updates. You see working software in days, not weeks. Iterate in real time.</p>
+        </div>
+
+        <!-- Step 4 -->
+        <div style="text-align:center; padding:0 16px; position:relative; z-index:1;">
+          <div style="width:80px;height:80px;border-radius:50%;background:var(--elevated);border:1px solid rgba(255,46,212,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:24px; box-shadow:0 0 20px rgba(255,46,212,0.15);">🚀</div>
+          <div class="orbitron" style="font-size:11px;color:var(--magenta);letter-spacing:0.1em;margin-bottom:10px;">04 — LAUNCH</div>
+          <h4 style="font-size:15px;font-weight:600;margin-bottom:10px;">Deploy & Optimize</h4>
+          <p style="font-size:13px;color:var(--muted);line-height:1.7;">Ship to production, monitor performance, train your team, and tune continuously for maximum impact.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- CTA / CONTACT -->
+  <section id="contact" class="cta-section" style="padding:100px 0;">
+    <!-- Background glow -->
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 50% 50%, rgba(0,229,196,0.06) 0%, transparent 70%); pointer-events:none;"></div>
+
+    <div style="max-width:680px; margin:0 auto; padding:0 24px; text-align:center; position:relative; z-index:1;">
+      <div style="font-size:48px; margin-bottom:20px;">🐾</div>
+      <h2 style="font-size:clamp(2rem,5vw,3.5rem); font-weight:900; letter-spacing:-0.03em; margin-bottom:20px; line-height:1.1;">
+        Ready to <span class="text-cyan glow-cyan">Wake</span><br/>
+        <span class="text-magenta glow-magenta">Your Giant?</span>
+      </h2>
+      <p style="color:var(--muted); font-size:1.1rem; margin-bottom:48px; line-height:1.75;">
+        Tell us about your business. We'll identify your biggest AI opportunities and show you exactly how we'd attack them.
+      </p>
+
+      <div style="background:var(--elevated); border:1px solid rgba(0,229,196,0.12); border-radius:16px; padding:40px; text-align:left; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px;">FIRST NAME</label>
+            <input type="text" class="input-field" placeholder="John" />
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px;">LAST NAME</label>
+            <input type="text" class="input-field" placeholder="Smith" />
+          </div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;font-weight:600;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px;">WORK EMAIL</label>
+          <input type="email" class="input-field" placeholder="john@company.com" />
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;font-weight:600;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px;">COMPANY</label>
+          <input type="text" class="input-field" placeholder="Acme Corp" />
+        </div>
+        <div style="margin-bottom:28px;">
+          <label style="display:block;font-size:12px;font-weight:600;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px;">WHAT ARE YOU TRYING TO SOLVE?</label>
+          <textarea class="input-field" rows="4" placeholder="Tell us about the processes you want to automate, data you want to unlock, or outcomes you're chasing..." style="resize:none;"></textarea>
+        </div>
+        <button class="btn-primary" style="width:100%; justify-content:center; font-size:14px; padding:16px 32px;">
+          <span>Let's Wake the Giant</span>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3.5 9h11M10.5 5l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer style="padding:48px 0 32px;">
+    <div style="max-width:1200px; margin:0 auto; padding:0 24px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:40px; flex-wrap:wrap; gap:24px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img src="brand_assets/image_123650291 (7).JPG" alt="Villager Labs" style="width:44px; height:44px; border-radius:8px; object-fit:cover; border:1px solid rgba(0,229,196,0.25);" />
+          <div>
+            <div class="orbitron" style="font-size:14px; font-weight:700; letter-spacing:0.08em;">
+              <span class="text-cyan">VILLAGER</span> <span style="color:#7278A0;">LABS</span>
+            </div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px;">Wake the Giant</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:32px; flex-wrap:wrap;">
+          <a href="#services" class="nav-link" style="font-size:13px;">Services</a>
+          <a href="#why" class="nav-link" style="font-size:13px;">Why Us</a>
+          <a href="#process" class="nav-link" style="font-size:13px;">Process</a>
+          <a href="#contact" class="nav-link" style="font-size:13px;">Contact</a>
+        </div>
+      </div>
+      <div class="divider" style="margin-bottom:24px;"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <p style="font-size:13px; color:var(--muted);">© 2026 Villager Labs. All rights reserved.</p>
+        <p style="font-size:13px; color:var(--muted);">Built to wake giants.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const el = document.querySelector(a.getAttribute('href'));
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      });
+    });
+
+    // Fade in on scroll
+    const scrollObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.opacity = '1';
+          entry.target.style.transform = 'translateY(0)';
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.card-neon, section > div > div > div[style*="text-align:center"]').forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(24px)';
+      el.style.transition = 'opacity 0.6s ease, transform 0.6s cubic-bezier(0.34,1.56,0.64,1)';
+      scrollObserver.observe(el);
+    });
+
+    // === Dog face 3D cursor tracking ===
+    // The dog logo rotates in 3D to "look at" wherever the cursor is inside the card.
+    // We use CSS perspective transforms — no library needed.
+    const heroCard  = document.getElementById('hero-card');
+    const dogTilt   = document.getElementById('dog-tilt');
+    const spotlight = document.getElementById('hero-spotlight');
+    const cursorDot = document.getElementById('hero-cursor');
+
+    if (heroCard && dogTilt) {
+      let rafId = null;
+
+      const onEnter = () => {
+        spotlight.style.opacity = '1';
+        cursorDot.style.opacity = '1';
+      };
+
+      const onLeave = () => {
+        spotlight.style.opacity = '0';
+        cursorDot.style.opacity = '0';
+        // Spring the dog's face back to center
+        dogTilt.style.transition = 'transform 0.75s cubic-bezier(0.34,1.56,0.64,1)';
+        dogTilt.style.transform  = 'perspective(900px) rotateX(0deg) rotateY(0deg) scale(1)';
+        setTimeout(() => { dogTilt.style.transition = 'transform 0.08s linear'; }, 750);
+      };
+
+      const onMove = (e) => {
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          const rect = heroCard.getBoundingClientRect();
+          const mx = e.clientX - rect.left;
+          const my = e.clientY - rect.top;
+
+          // Normalised −0.5 → +0.5 from card centre
+          const cx = mx / rect.width  - 0.5;
+          const cy = my / rect.height - 0.5;
+
+          // rotateY tilts left/right so face turns toward cursor
+          // rotateX tilts up/down so face looks up/down
+          const rotY =  cx * 34;
+          const rotX = -cy * 24;
+          dogTilt.style.transform =
+            `perspective(900px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(1.03)`;
+
+          // Spotlight stays under cursor
+          spotlight.style.left = mx + 'px';
+          spotlight.style.top  = my + 'px';
+
+          // Neon cursor dot
+          cursorDot.style.left = mx + 'px';
+          cursorDot.style.top  = my + 'px';
+        });
+      };
+
+      heroCard.addEventListener('mouseenter', onEnter);
+      heroCard.addEventListener('mouseleave', onLeave);
+      heroCard.addEventListener('mousemove',  onMove);
+    }
+  </script>
+</body>
+</html>
